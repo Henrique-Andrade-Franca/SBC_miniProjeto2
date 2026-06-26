@@ -23,20 +23,31 @@ O modelo é composto por pelo menos 3 conjuntos fuzzy por variável, garantindo 
 ---
 
 ## Base de Regras e Justificação Clínica
-O motor de inferência é composto por 6 regras que combinam os sintomas. A justificação baseia-se em princípios básicos de triagem:
+O motor de inferência é composto por 9 regras que cobrem exaustivamente o espaço de estados combinando os sintomas de Temperatura e Saturação. A justificação baseia-se em princípios de triagem clínica e no Protocolo de Manchester:
 
-* **R1:** SE a saturação é `critica` ENTÃO a prioridade é `vermelha`.
-  * *Justificação:* A falta de oxigenação no sangue é um risco de vida imediato e anula qualquer outra variável. O paciente precisa de suporte respiratório imediato.
-* **R2:** SE a temperatura é `alta` E a saturação está em `alerta` ENTÃO a prioridade é `vermelha`.
-  * *Justificação:* Febre muito alta combinada com dificuldade respiratória inicial sugere um quadro de infeção pulmonar grave com rápida evolução.
-* **R3:** SE a temperatura é `alta` E a saturação é `normal` ENTÃO a prioridade é `amarela`.
-  * *Justificação:* A febre é preocupante e exige medicação intravenosa (urgente), mas como o paciente respira bem, não há risco imediato de paragem respiratória.
-* **R4:** SE a temperatura é `febril` E a saturação está em `alerta` ENTÃO a prioridade é `amarela`.
-  * *Justificação:* O paciente está num estado limítrofe em ambas as variáveis, exigindo vigilância moderada para evitar que o quadro piore.
-* **R5:** SE a temperatura é `febril` E a saturação é `normal` ENTÃO a prioridade é `verde`.
-  * *Justificação:* É um quadro clássico de constipação leve. O paciente pode aguardar na sala de espera sem grandes riscos.
-* **R6:** SE a temperatura é `normal` E a saturação é `normal` ENTÃO a prioridade é `verde`.
-  * *Justificação:* O paciente não apresenta nenhum dos dois sinais vitais alterados; atendimento de rotina.
+### Submatriz 1: Paciente Sem Febre (Temperatura Normal)
+* **R1:** SE a temperatura é `normal` E a saturação é `normal` ENTÃO a prioridade é `verde`.
+  * *Justificação:* Caso ambulatorial simples. O paciente não apresenta nenhum dos dois sinais vitais alterados; atendimento de rotina.
+* **R2:** SE a temperatura é `normal` E a saturação está em `alerta` ENTÃO a prioridade é `amarela`.
+  * *Justificação:* Necessita investigação. Embora esteja sem febre, a queda inicial da oxigenação indica um quadro potencialmente instável que precisa ser monitorado.
+* **R3:** SE a temperatura é `normal` E a saturação é `critica` ENTÃO a prioridade é `vermelha`.
+  * *Justificação:* Hipóxia grave isolada (ex: crise de asma aguda, engasgo ou embolia). Há risco de vida imediato por falta de oxigenação, independente da temperatura.
+
+### Submatriz 2: Paciente Febril Leve (Temperatura Febril)
+* **R4:** SE a temperatura é `febril` E a saturação é `normal` ENTÃO a prioridade é `verde`.
+  * *Justificação:* Sintoma leve (ex: virose comum ou resfriado). O paciente apresenta uma linha sutil de febre, mas como a respiração está perfeita, pode aguardar atendimento com segurança.
+* **R5:** SE a temperatura é `febril` E a saturação está em `alerta` ENTÃO a prioridade é `amarela`.
+  * *Justificação:* Risco moderado de evolução para desconforto respiratório. O paciente encontra-se num estado limítrofe em ambas as variáveis, exigindo vigilância ativa.
+* **R6:** SE a temperatura é `febril` E a saturação é `critica` ENTÃO a prioridade é `vermelha`.
+  * *Justificação:* Emergência médica. O comprometimento respiratório evidente associado a um processo febril indica uma resposta inflamatória ou infecciosa aguda que exige intervenção imediata.
+
+### Submatriz 3: Paciente com Febre Alta (Temperatura Alta)
+* **R7:** SE a temperatura é `alta` E a saturação é `normal` ENTÃO a prioridade é `amarela`.
+  * *Justificação:* Exige medicação intravenosa urgente para controle térmico (risco de convulsão ou desidratação), mas o pulmão e a mecânica respiratória ainda estão estáveis.
+* **R8:** SE a temperatura é `alta` E a saturação está em `alerta` ENTÃO a prioridade é `vermelha`.
+  * *Justificação:* Quadro infeccioso sistêmico avançado. A febre alta somada à dificuldade respiratória inicial sugere um forte comprometimento pulmonar com risco de rápida piora.
+* **R9:** SE a temperatura é `alta` E a saturação é `critica` ENTÃO a prioridade é `vermelha`.
+  * *Justificação:* Estado gravíssimo de urgência (ex: pneumonia severa ou choque séptico iminente). O paciente apresenta falência respiratória severa combinada com hipertermia, correndo risco iminente de morte.
 
 ---
 
@@ -44,15 +55,15 @@ O motor de inferência é composto por 6 regras que combinam os sintomas. A just
 
 ### Teste 1: Paciente Saudável / Rotina
 * **Valores de Entrada:** Temperatura = 36.8 ºC | Saturação = 99%
-* **Análise:** O sistema mapeia os valores com 100% de pertinência nos conjuntos `normal`. A **Regra 6** é ativada em pleno.
-* **Saída:** Score de prioridade baixo (~22.50). O paciente recebe a classificação **Verde** e aguarda o fluxo normal de atendimento.
+* **Análise:** O sistema mapeia os valores com 100% de pertinência nos conjuntos `normal`. A **Regra 1** é ativada em pleno.
+* **Saída:** Score de prioridade baixo (~15.0). O paciente recebe a classificação **Verde** e aguarda o fluxo normal de atendimento.
 
 ### Teste 2: Paciente no Limiar (O Poder da Lógica Fuzzy)
-* **Valores de Entrada:** Temperatura = 37.6 ºC | Saturação = 94%
-* **Análise:** Este é o cenário onde a lógica binária falharia. O paciente não está perfeitamente normal, nem criticamente doente. O sistema fuzzy ativa os conjuntos `normal` e `febril` para a temperatura, e `alerta` e `normal` para o oxigénio de forma fracionada. Múltiplas regras (R4, R5 e R6) são ativadas simultaneamente com forças diferentes (ex: 0.20, 0.40). O método do centroide agrega estas ativações para gerar uma saída justa.
-* **Saída:** Score de prioridade intermédio (~31.00), puxando a decisão para a transição entre Verde e Amarela.
+* **Valores de Entrada:** Temperatura = 37.2 ºC | Saturação = 94.2%
+* **Análise:** Este é o cenário onde a lógica binária falharia. O paciente não está perfeitamente normal, nem criticamente doente. O sistema fuzzy ativa os conjuntos `normal` e `febril` para a temperatura, e `alerta` e `normal` para o oxigénio de forma fracionada. Múltiplas regras (R1, R2, R4 e R5) são ativadas simultaneamente com forças diferentes. O método do centroide agrega estas ativações para gerar uma saída justa.
+* **Saída:** Score de prioridade intermédio (~46.30), puxando a decisão para a transição entre Verde e Amarela.
 
 ### Teste 3: Paciente Crítico (Emergência)
 * **Valores de Entrada:** Temperatura = 39.0 ºC | Saturação = 85%
-* **Análise:** A saturação de 85% pertence integralmente ao conjunto `critica`. Isto faz com que a **Regra 1** dispare com força máxima (1.0).
-* **Saída:** Score de prioridade extremamente alto (~77.50). O paciente é classificado como **Vermelho** e encaminhado diretamente para a sala de reanimação/emergência.
+* **Análise:** A saturação de 85% pertence integralmente ao conjunto `critica`. Isto faz com que a **Regra 9** dispare.
+* **Saída:** Score de prioridade extremamente alto (~83.50). O paciente é classificado como **Vermelho** e encaminhado diretamente para a sala de reanimação/emergência.
